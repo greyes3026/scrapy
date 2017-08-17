@@ -1,6 +1,13 @@
+.. _topics-contributing:
+
 ======================
 Contributing to Scrapy
 ======================
+
+.. important::
+
+    Double check you are reading the most recent version of this document at
+    http://doc.scrapy.org/en/master/contributing.html
 
 There are many ways to contribute to Scrapy. Here are some of them:
 
@@ -8,18 +15,24 @@ There are many ways to contribute to Scrapy. Here are some of them:
   newcomers with more examples and the Scrapy project to increase its
   visibility.
 
-* Report bugs and request features in the `ticket tracker`_, trying to follow
+* Report bugs and request features in the `issue tracker`_, trying to follow
   the guidelines detailed in `Reporting bugs`_ below.
 
 * Submit patches for new functionality and/or bug fixes. Please read
   `Writing patches`_ and `Submitting patches`_ below for details on how to
   write and submit a patch.
 
-* Join the `scrapy-developers`_ mailing list and share your ideas on how to
+* Join the `Scrapy subreddit`_ and share your ideas on how to
   improve Scrapy. We're always open to suggestions.
 
 Reporting bugs
 ==============
+
+.. note::
+
+    Please report security issues **only** to
+    scrapy-security@googlegroups.com. This is a private list only open to
+    trusted Scrapy developers, and its archives are not public.
 
 Well-written bug reports are very helpful, so keep in mind the following
 guidelines when reporting a new bug.
@@ -27,23 +40,25 @@ guidelines when reporting a new bug.
 * check the :ref:`FAQ <faq>` first to see if your issue is addressed in a
   well-known question
 
-* check the `active tickets` in the issue tracker to see if your issue has
-  already been reported. If it has, don't dismiss the report but check the
-  ticket history and comments, you may find additional useful information to
-  contribute.
+* check the `open issues`_ to see if it has already been reported. If it has,
+  don't dismiss the report but check the ticket history and comments, you may
+  find additional useful information to contribute.
 
-* search the `scrapy-users`_ list to see if it has been discussed there, or
-  if you're not sure if what you're seeing is a bug. You can also ask in the
-  `#scrapy` IRC channel.
+* search the `scrapy-users`_ list and `Scrapy subreddit`_ to see if it has
+  been discussed there, or if you're not sure if what you're seeing is a bug.
+  You can also ask in the `#scrapy` IRC channel.
 
-* write complete, reproducible, specific bug reports. The smaller the test
+* write **complete, reproducible, specific bug reports**. The smaller the test
   case, the better. Remember that other developers won't have your project to
   reproduce the bug, so please include all relevant files required to reproduce
-  it.
+  it. See for example StackOverflow's guide on creating a
+  `Minimal, Complete, and Verifiable example`_ exhibiting the issue.
 
 * include the output of ``scrapy version -v`` so developers working on your bug
   know exactly which version and platform it occurred on, which is often very
   helpful for reproducing it, or knowing if it was already fixed.
+
+.. _Minimal, Complete, and Verifiable example: https://stackoverflow.com/help/mcve
 
 Writing patches
 ===============
@@ -64,33 +79,36 @@ Well-written patches should:
 * include one (or more) test cases that check the bug fixed or the new
   functionality added. See `Writing tests`_ below.
 
-* if you're adding or changing a public (documented) API, please include 
+* if you're adding or changing a public (documented) API, please include
   the documentation changes in the same patch.  See `Documentation policies`_
   below.
 
 Submitting patches
 ==================
 
-To submit patches, any of the following mechanism is considered good:
+The best way to submit a patch is to issue a `pull request`_ on GitHub,
+optionally creating a new issue first.
 
-* create appropriate tickets in the issue tracker and attach the patches to
-  those tickets. The patches can be generated using ``hg diff``.
+Remember to explain what was fixed or the new functionality (what it is, why
+it's needed, etc). The more info you include, the easier will be for core
+developers to understand and accept your patch.
 
-* send the patches to the `scrapy-developers`_ list, along with a comment
-  explaining what was fixed or the new functionality (what it is, why it's
-  needed, etc). The more info you include, the easier will be for core
-  developers to understand and accept your patch.
+You can also discuss the new functionality (or bug fix) before creating the
+patch, but it's always good to have a patch ready to illustrate your arguments
+and show that you have put some additional thought into the subject. A good
+starting point is to send a pull request on GitHub. It can be simple enough to
+illustrate your idea, and leave documentation/tests for later, after the idea
+has been validated and proven useful. Alternatively, you can start a
+conversation in the `Scrapy subreddit`_ to discuss your idea first.
+When writing GitHub pull requests, try to keep titles short but descriptive.
+E.g. For bug #411: "Scrapy hangs if an exception raises in start_requests"
+prefer "Fix hanging when exception occurs in start_requests (#411)"
+instead of "Fix for #411".
+Complete titles make it easy to skim through the issue tracker.
 
-* fork the `Github mirror`_ and send a pull request when you're done working on
-  the patch
-
-* clone the `Bitbucket mirror`_ and send a pull request when you're done
-  working on the patch
-
-You can also discuss the new functionality (or bug fix) in `scrapy-developers`_
-first, before creating the patch, but it's always good to have a patch ready to
-illustrate your arguments and show that you have put some additional thought
-into the subject.
+Finally, try to keep aesthetic changes (:pep:`8` compliance, unused imports
+removal, etc) in separate commits than functional changes. This will make pull
+requests easier to review and more likely to get merged.
 
 Coding style
 ============
@@ -112,7 +130,7 @@ Documentation policies
 * **Don't** use docstrings for documenting classes, or methods which are
   already documented in the official (sphinx) documentation. For example, the
   :meth:`ItemLoader.add_value` method should be documented in the sphinx
-  documentation and not its docstring.
+  documentation, not its docstring.
 
 * **Do** use docstrings for documenting functions not present in the official
   (sphinx) documentation, such as functions from ``scrapy.utils`` package and
@@ -121,23 +139,35 @@ Documentation policies
 Tests
 =====
 
-Tests are implemented using the `Twisted unit-testing framework`_ called
-``trial``.
+Tests are implemented using the `Twisted unit-testing framework`_, running
+tests requires `tox`_.
 
 Running tests
 -------------
 
+Make sure you have a recent enough `tox`_ installation:
+
+    ``tox --version``
+
+If your version is older than 1.7.0, please update it first:
+
+    ``pip install -U tox``
+
 To run all tests go to the root directory of Scrapy source code and run:
 
-    ``bin/runtests.sh`` (on unix)
+    ``tox``
 
-    ``bin\runtests.bat`` (on windows)
+To run a specific test (say ``tests/test_loader.py``) use:
 
-To run a specific test (say ``scrapy.tests.test_contrib_loader``) use:
+    ``tox -- tests/test_loader.py``
 
-    ``bin/runtests.sh scrapy.tests.test_contrib_loader`` (on unix)
+To see coverage report install `coverage`_ (``pip install coverage``) and run:
 
-    ``bin\runtests.bat scrapy.tests.test_contrib_loader`` (on windows)
+    ``coverage report``
+
+see output of ``coverage --help`` for more options like html or xml report.
+
+.. _coverage: https://pypi.python.org/pypi/coverage
 
 Writing tests
 -------------
@@ -146,22 +176,22 @@ All functionality (including new features and bug fixes) must include a test
 case to check that it works as expected, so please include tests for your
 patches if you want them to get accepted sooner.
 
-Scrapy uses unit-tests, which are located in the ``scrapy.tests`` package
-(`scrapy/tests`_ directory). Their module name typically resembles the full
-path of the module they're testing. For example, the item loaders code is in::
+Scrapy uses unit-tests, which are located in the `tests/`_ directory.
+Their module name typically resembles the full path of the module they're
+testing. For example, the item loaders code is in::
 
-    scrapy.contrib.loader
+    scrapy.loader
 
 And their unit-tests are in::
 
-    scrapy.tests.test_contrib_loader
+    tests/test_loader.py
 
-.. _ticket tracker: http://dev.scrapy.org/newticket
-.. _scrapy-users: http://groups.google.com/group/scrapy-users
-.. _scrapy-developers: http://groups.google.com/group/scrapy-developers
-.. _Github mirror: http://github.com/insophia/scrapy/
-.. _Bitbucket mirror: http://bitbucket.org/insophia/scrapy/
-.. _Twisted unit-testing framework: http://twistedmatrix.com/documents/current/core/development/policy/test-standard.html
-.. _AUTHORS: http://dev.scrapy.org/browser/AUTHORS
-.. _scrapy/tests: http://dev.scrapy.org/browser/scrapy/tests
-.. _active tickets: http://dev.scrapy.org/report/1
+.. _issue tracker: https://github.com/scrapy/scrapy/issues
+.. _scrapy-users: https://groups.google.com/forum/#!forum/scrapy-users
+.. _Scrapy subreddit: http://reddit.com/r/scrapy
+.. _Twisted unit-testing framework: https://twistedmatrix.com/documents/current/core/development/policy/test-standard.html
+.. _AUTHORS: https://github.com/scrapy/scrapy/blob/master/AUTHORS
+.. _tests/: https://github.com/scrapy/scrapy/tree/master/tests
+.. _open issues: https://github.com/scrapy/scrapy/issues
+.. _pull request: https://help.github.com/send-pull-requests/
+.. _tox: https://pypi.python.org/pypi/tox

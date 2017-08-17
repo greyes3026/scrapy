@@ -3,47 +3,57 @@ Mail sending helpers
 
 See documentation in docs/topics/email.rst
 """
-from cStringIO import StringIO
-from email.MIMEMultipart import MIMEMultipart
-from email.MIMENonMultipart import MIMENonMultipart
-from email.MIMEBase import MIMEBase
-from email.MIMEText import MIMEText
-from email.Utils import COMMASPACE, formatdate
-from email import Encoders
+import logging
 
-from twisted.internet import defer, reactor
-from twisted.mail.smtp import ESMTPSenderFactory
+from six.moves import cStringIO as StringIO
+import six
 
-from scrapy import log
-from scrapy.exceptions import NotConfigured
-from scrapy.conf import settings
-from scrapy.utils.signal import send_catch_log
+from email.utils import COMMASPACE, formatdate
+from six.moves.email_mime_multipart import MIMEMultipart
+from six.moves.email_mime_text import MIMEText
+from six.moves.email_mime_base import MIMEBase
+if six.PY2:
+    from email.MIMENonMultipart import MIMENonMultipart
+    from email import Encoders
+else:
+    from email.mime.nonmultipart import MIMENonMultipart
+    from email import encoders as Encoders
 
+from twisted.internet import defer, reactor, ssl
 
-# signal sent when message is sent
-# args: to, subject, body, cc, attach, msg
-mail_sent = object()
+from .utils.misc import arg_to_iter
+
+logger = logging.getLogger(__name__)
 
 
 class MailSender(object):
 
-    def __init__(self, smtphost=None, mailfrom=None, smtpuser=None, smtppass=None, \
-            smtpport=None, debug=False):
-        self.smtphost = smtphost or settings['MAIL_HOST']
-        self.smtpport = smtpport or settings.getint('MAIL_PORT')
-        self.smtpuser = smtpuser or settings['MAIL_USER']
-        self.smtppass = smtppass or settings['MAIL_PASS']
-        self.mailfrom = mailfrom or settings['MAIL_FROM']
+    def __init__(self, smtphost='localhost', mailfrom='scrapy@localhost',
+            smtpuser=None, smtppass=None, smtpport=25, smtptls=False, smtpssl=False, debug=False):
+        self.smtphost = smtphost
+        self.smtpport = smtpport
+        self.smtpuser = smtpuser
+        self.smtppass = smtppass
+        self.smtptls = smtptls
+        self.smtpssl = smtpssl
+        self.mailfrom = mailfrom
         self.debug = debug
 
-        if not self.smtphost or not self.mailfrom:
-            raise NotConfigured("MAIL_HOST and MAIL_FROM settings are required")
+    @classmethod
+    def from_settings(cls, settings):
+        return cls(settings['MAIL_HOST'], settings['MAIL_FROM'], settings['MAIL_USER'],
+            settings['MAIL_PASS'], settings.getint('MAIL_PORT'),
+            settings.getbool('MAIL_TLS'), settings.getbool('MAIL_SSL'))
 
-    def send(self, to, subject, body, cc=None, attachs=()):
+    def send(self, to, subject, body, cc=None, attachs=(), mimetype='text/plain', charset=None, _callback=None):
         if attachs:
             msg = MIMEMultipart()
         else:
-            msg = MIMENonMultipart('text', 'plain')
+            msg = MIMENonMultipart(*mimetype.split('/', 1))
+
+        to = list(arg_to_iter(to))
+        cc = list(arg_to_iter(cc))
+
         msg['From'] = self.mailfrom
         msg['To'] = COMMASPACE.join(to)
         msg['Date'] = formatdate(localtime=True)
@@ -53,8 +63,11 @@ class MailSender(object):
             rcpts.extend(cc)
             msg['Cc'] = COMMASPACE.join(cc)
 
+        if charset:
+            msg.set_charset(charset)
+
         if attachs:
-            msg.attach(MIMEText(body))
+            msg.attach(MIMEText(body, 'plain', charset or 'us-ascii'))
             for attach_name, mimetype, f in attachs:
                 part = MIMEBase(*mimetype.split('/'))
                 part.set_payload(f.read())
@@ -65,12 +78,14 @@ class MailSender(object):
         else:
             msg.set_payload(body)
 
-        send_catch_log(signal=mail_sent, to=to, subject=subject, body=body,
-                       cc=cc, attach=attachs, msg=msg)
+        if _callback:
+            _callback(to=to, subject=subject, body=body, cc=cc, attach=attachs, msg=msg)
 
         if self.debug:
-            log.msg('Debug mail sent OK: To=%s Cc=%s Subject="%s" Attachs=%d' % \
-                (to, cc, subject, len(attachs)), level=log.DEBUG)
+            logger.debug('Debug mail sent OK: To=%(mailto)s Cc=%(mailcc)s '
+                         'Subject="%(mailsubject)s" Attachs=%(mailattachs)d',
+                         {'mailto': to, 'mailcc': cc, 'mailsubject': subject,
+                          'mailattachs': len(attachs)})
             return
 
         dfd = self._sendmail(rcpts, msg.as_string())
@@ -81,20 +96,32 @@ class MailSender(object):
         return dfd
 
     def _sent_ok(self, result, to, cc, subject, nattachs):
-        log.msg('Mail sent OK: To=%s Cc=%s Subject="%s" Attachs=%d' % \
-            (to, cc, subject, nattachs))
+        logger.info('Mail sent OK: To=%(mailto)s Cc=%(mailcc)s '
+                    'Subject="%(mailsubject)s" Attachs=%(mailattachs)d',
+                    {'mailto': to, 'mailcc': cc, 'mailsubject': subject,
+                     'mailattachs': nattachs})
 
     def _sent_failed(self, failure, to, cc, subject, nattachs):
         errstr = str(failure.value)
-        log.msg('Unable to send mail: To=%s Cc=%s Subject="%s" Attachs=%d - %s' % \
-            (to, cc, subject, nattachs, errstr), level=log.ERROR)
+        logger.error('Unable to send mail: To=%(mailto)s Cc=%(mailcc)s '
+                     'Subject="%(mailsubject)s" Attachs=%(mailattachs)d'
+                     '- %(mailerr)s',
+                     {'mailto': to, 'mailcc': cc, 'mailsubject': subject,
+                      'mailattachs': nattachs, 'mailerr': errstr})
 
     def _sendmail(self, to_addrs, msg):
+        # Import twisted.mail here because it is not available in python3
+        from twisted.mail.smtp import ESMTPSenderFactory
         msg = StringIO(msg)
         d = defer.Deferred()
         factory = ESMTPSenderFactory(self.smtpuser, self.smtppass, self.mailfrom, \
             to_addrs, msg, d, heloFallback=True, requireAuthentication=False, \
-            requireTransportSecurity=False)
+            requireTransportSecurity=self.smtptls)
         factory.noisy = False
-        reactor.connectTCP(self.smtphost, self.smtpport, factory)
+
+        if self.smtpssl:
+            reactor.connectSSL(self.smtphost, self.smtpport, factory, ssl.ClientContextFactory())
+        else:
+            reactor.connectTCP(self.smtphost, self.smtpport, factory)
+
         return d

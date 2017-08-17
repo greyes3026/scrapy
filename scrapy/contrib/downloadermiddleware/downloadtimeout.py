@@ -1,24 +1,7 @@
-"""
-Download timeout middleware
+import warnings
+from scrapy.exceptions import ScrapyDeprecationWarning
+warnings.warn("Module `scrapy.contrib.downloadermiddleware.downloadtimeout` is deprecated, "
+              "use `scrapy.downloadermiddlewares.downloadtimeout` instead",
+              ScrapyDeprecationWarning, stacklevel=2)
 
-See documentation in docs/topics/downloader-middleware.rst
-"""
-from scrapy.utils.python import WeakKeyCache
-from scrapy.utils import deprecate
-
-
-class DownloadTimeoutMiddleware(object):
-
-    def __init__(self):
-        self._cache = WeakKeyCache(self._download_timeout)
-
-    def _download_timeout(self, spider):
-        if hasattr(spider, 'download_timeout'):
-            deprecate.attribute(spider, 'download_timeout', 'DOWNLOAD_TIMEOUT')
-            return spider.download_timeout
-        return spider.settings.getint('DOWNLOAD_TIMEOUT')
-
-    def process_request(self, request, spider):
-        timeout = self._cache[spider]
-        if timeout:
-            request.meta.setdefault('download_timeout', timeout)
+from scrapy.downloadermiddlewares.downloadtimeout import *

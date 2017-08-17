@@ -1,22 +1,7 @@
-"""Set User-Agent header per spider or use a default value from settings"""
+import warnings
+from scrapy.exceptions import ScrapyDeprecationWarning
+warnings.warn("Module `scrapy.contrib.downloadermiddleware.useragent` is deprecated, "
+              "use `scrapy.downloadermiddlewares.useragent` instead",
+              ScrapyDeprecationWarning, stacklevel=2)
 
-from scrapy.utils.python import WeakKeyCache
-from scrapy.utils import deprecate
-
-
-class UserAgentMiddleware(object):
-    """This middleware allows spiders to override the user_agent"""
-
-    def __init__(self):
-        self.cache = WeakKeyCache(self._user_agent)
-
-    def _user_agent(self, spider):
-        if hasattr(spider, 'user_agent'):
-            deprecate.attribute(spider, 'user_agent', 'USER_AGENT')
-            return spider.user_agent
-        return spider.settings['USER_AGENT']
-
-    def process_request(self, request, spider):
-        ua = self.cache[spider]
-        if ua:
-            request.headers.setdefault('User-Agent', ua)
+from scrapy.downloadermiddlewares.useragent import *

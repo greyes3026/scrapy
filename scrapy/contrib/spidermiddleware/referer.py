@@ -1,15 +1,7 @@
-"""
-RefererMiddleware: populates Request referer field, based on the Response which
-originated it.
-"""
+import warnings
+from scrapy.exceptions import ScrapyDeprecationWarning
+warnings.warn("Module `scrapy.contrib.spidermiddleware.referer` is deprecated, "
+              "use `scrapy.spidermiddlewares.referer` instead",
+              ScrapyDeprecationWarning, stacklevel=2)
 
-from scrapy.http import Request
-
-class RefererMiddleware(object):
-    def process_spider_output(self, response, result, spider):
-        def _set_referer(r):
-            if isinstance(r, Request):
-                r.headers.setdefault('Referer', response.url)
-            return r
-        return (_set_referer(r) for r in result or ())
-
+from scrapy.spidermiddlewares.referer import *
